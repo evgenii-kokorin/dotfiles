@@ -12,13 +12,16 @@ set guioptions-=T "скрываю тулбар
 syntax on
 "filetype on
 set guifont=Hack:h12
+" let g:loaded_python3_provider = 1  " Игнорировать отсутствие Python-провайдера
 call vundle#begin()
 " let Vundle manage Vundle, required
 Plugin 'VundleVim/Vundle.vim'
 Plugin 'scrooloose/nerdtree'
-Plugin 'python-mode/python-mode', { 'for': 'python', 'branch': 'develop'}
+" Plugin 'python-mode/python-mode', { 'for': 'python', 'branch': 'develop'}
 Plugin 'ctrlpvim/ctrlp.vim'
 Plugin 'mhinz/vim-startify'
+" Plugin 'jupyter-vim/jupyter-vim'
+Plugin 'markonm/traces.vim'
 call vundle#end()            " required
 filetype plugin indent on    " required
 
@@ -46,37 +49,70 @@ inoremap <C-l> <C-^>
 
 " Комбинация для компиляции python
 map <F5> :w<CR>:!python %<CR>
-
+" let g:python3_host_prog = '/usr/bin/python3'
 " Поддержка виртуальных окружений python
 " python with virtualenv support
-python3 << EOF
-import os
-import subprocess
+" python3 << EOF
+" import os
+" import subprocess
+" 
+" if "VIRTUAL_ENV" in os.environ:
+"     project_base_dir = os.environ["VIRTUAL_ENV"]
+"     script = os.path.join(project_base_dir, "bin/activate")
+"     pipe = subprocess.Popen(". %s; env" % script, stdout=subprocess.PIPE, shell=True)
+"     output = pipe.communicate()[0].decode('utf8').splitlines()
+"     env = dict((line.split("=", 1) for line in output))
+"     os.environ.update(env)
+" EOF
 
-if "VIRTUAL_ENV" in os.environ:
-    project_base_dir = os.environ["VIRTUAL_ENV"]
-    script = os.path.join(project_base_dir, "bin/activate")
-    pipe = subprocess.Popen(". %s; env" % script, stdout=subprocess.PIPE, shell=True)
-    output = pipe.communicate()[0].decode('utf8').splitlines()
-    env = dict((line.split("=", 1) for line in output))
-    os.environ.update(env)
-EOF
+function! DetectVenv()
+  if exists('$VIRTUAL_ENV')
+    let venv_python = $VIRTUAL_ENV . '/bin/python'
+    if executable(venv_python)
+      let g:python3_host_prog = venv_python
+      echom "Python venv activated: " . $VIRTUAL_ENV
+    endif
+  endif
+endfunction
+" local function setup_venv()
+"   local venv_path = os.getenv("VIRTUAL_ENV")
+"   if venv_path then
+"     local python_path = venv_path .. "/bin/python"
+"     if vim.fn.executable(python_path) == 1 then
+"       vim.g.python3_host_prog = python_path
+"       vim.notify("Python venv activated: " .. venv_path, vim.log.levels.INFO)
+"     end
+"   end
+" end
+" 
+" setup_venv()
 
+call DetectVenv()
 " Выделение лишних пробелов красным цветом
 " также настраиваются типы файлов к которым выделение применяется
 highlight BadWhitespace ctermbg=red guibg=red
 au BufRead,BufNewFile *.py,*.pyw,*.c,*.h match BadWhitespace /\s\+$/
 
 "Python-mode
-let g:pymode_python = 'python3'
-let g:pymode_lint = 1
-let g:pymode_lint_checker = "pyflakes,pep8"
-let g:pymode_rope = 0
-let g:pymode_rope_complete_on_dot = 0
-let g:pymode_virtualenv = 1
-let g:pymode_syntax = 1
-let g:pymode_rope_extract_method_bind = '<C-c>rm'
-"highlight Normal guibg=NONE ctermbg=NONE
+" let g:pymode_virtualenv_path = $VIRTUAL_ENV     " Путь к venv
+" let g:pymode_python = 'python3'
+" " let g:pymode_lint = 1
+" let g:pymode_lint_checker = "pyflakes,pep8"
+" " let g:pymode_rope = 0
+" let g:pymode_rope_complete_on_dot = 0
+" let g:pymode_virtualenv = 1
+" let g:pymode_syntax = 1
+" let g:pymode_rope_extract_method_bind = '<C-c>rm'
+" let g:pymode_lint = 1          " Отключает проверку кода (требует Python)
+" let g:pymode_rope = 1          " Отключает автодополнение (требует Python)
+" " Основные настройки
+" let g:pymode_rope_completion = 1              " Включить автодополнение
+" let g:pymode_rope_complete_on_dot = 1         " Автодополнение после точки
+" let g:pymode_rope_autoimport = 1              " Автоматически добавлять импорты
+" let g:pymode_rope_goto_definition_cmd = 'e'   " Открывать определение в текущем буфере
+" let g:ropevim_extended_complete = 1
+" let g:pymode_virtualenv = 0    " Отключает интеграцию с venv
+" "highlight Normal guibg=NONE ctermbg=NONE
 " Для заметок
 let g:note= "~/Sync/5.Notes/"
 command! -nargs=0 IndexNote :execute ":e" note . "Index.md"
@@ -86,7 +122,11 @@ command! -nargs=0 CDNotes :execute ":cd" note
 nnoremap <leader>nn :NewNote 
 "переход к индексу
 nnoremap <leader>ni :IndexNote<CR> :CDNotes<CR>  
-command! -nargs=1 Ngrep grep -i "<args>" -g "*.md"
+" set grepprg=rg\ --vimgrep
+set grepprg=rg\ --vimgrep\ --smart-case
+set grepformat=%f:%l:%c:%m
+command! -nargs=1 Ngrep grep <args> -g "*.md"
+" command! -nargs=1 Ngrep grep -i "<args>" -g "*.md"
 "поиск с grep, cn, cp - навигация
 nnoremap <leader>ns :CDNotes<CR> :Ngrep 
 
@@ -145,3 +185,22 @@ endif
 
 "Автоматическое переключение рабочей папки
 set autochdir
+
+"Jupyter connect
+nnoremap <buffer> <silent> <localleader>T :JupyterConnect<CR>
+
+" Run current file
+nnoremap <buffer> <silent> <localleader>R :JupyterRunFile<CR>
+nnoremap <buffer> <silent> <localleader>I :PythonImportThisFile<CR>
+
+" Change to directory of current file
+nnoremap <buffer> <silent> <localleader>d :JupyterCd %:p:h<CR>
+
+" Send a selection of lines
+nnoremap <buffer> <silent> <localleader>X :JupyterSendCell<CR>
+nnoremap <buffer> <silent> <localleader>E :JupyterSendRange<CR>
+nmap     <buffer> <silent> <localleader>e <Plug>JupyterRunTextObj
+vmap     <buffer> <silent> <localleader>e <Plug>JupyterRunVisual
+
+" Debugging maps
+nnoremap <buffer> <silent> <localleader>b :PythonSetBreak<CR>
