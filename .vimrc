@@ -48,7 +48,8 @@ inoremap <C-l> <C-^>
 " set spell spelllang=en_us,ru
 
 " Комбинация для компиляции python
-map <F5> :w<CR>:!python %<CR>
+" map <F5> :w<CR>:!python %<CR>
+nnoremap <F5> :w<CR>:terminal python %<CR>
 " let g:python3_host_prog = '/usr/bin/python3'
 " Поддержка виртуальных окружений python
 " python with virtualenv support
